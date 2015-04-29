@@ -1,0 +1,8 @@
+{
+	"name": "d3d_on_dlang",
+	"description": "A minimal D application.",
+	"copyright": "Copyright © 2015, focke",
+	"authors": ["focke"],
+	"dependencies": {
+	}
+}
