@@ -5,3 +5,6 @@ __dummy.html
 *.obj
 dub.selections.json
 bin
+*.visualdproj
+*.suo
+*.sln

@@ -2,8 +2,8 @@ module d3d_on_dlang;
 
 import core.runtime;
 import core.sys.windows.windows;
-//pragma(lib, "gdi32.lib");
 import std.string;
+import d3d11manager;
 
 
 extern (Windows)
@@ -50,7 +50,9 @@ int myWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int
         return 0;
     }
 
-    auto hwnd = CreateWindowW(appName.ptr,      // window class name
+    D3D11Manager d3d11;
+
+    auto hWnd = CreateWindowW(appName.ptr,      // window class name
 						"The Hello Program",  // window caption
 						WS_OVERLAPPEDWINDOW,  // window style
 						CW_USEDEFAULT,        // initial x position
@@ -60,36 +62,133 @@ int myWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int
 						null,                 // parent window handle
 						null,                 // window menu handle
 						hInstance,            // program instance handle
-						null);                // creation parameters
+						&d3d11);                // creation parameters
+    ShowWindow(hWnd, nCmdShow);
+    UpdateWindow(hWnd);
 
-    ShowWindow(hwnd, nCmdShow);
-    UpdateWindow(hwnd);
+	// d3d
+	string shaderFile="source/MinTriangle.fx";
+    if (!d3d11.Initialize(hWnd, shaderFile)){
+        return 2;
+    }
 
-    MSG  msg;
-    while (GetMessageW(&msg, null, 0, 0))
+    // main loop
+    MSG msg;
+    while (true)
     {
-        TranslateMessage(&msg);
-        DispatchMessageW(&msg);
+        if (PeekMessageW(&msg, null, 0, 0, PM_NOREMOVE))
+        {
+            if (!GetMessageW(&msg, null, 0, 0))break;
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+        else {
+            d3d11.Render();
+        }
     }
 
     return cast(int)msg.wParam;
 }
 
+
+struct CREATESTRUCT 
+{
+	LPVOID lpCreateParams;
+	HANDLE hInstance;
+	HMENU hMenu;
+	HWND hwndParent;
+	int cy;
+	int cx;
+	int y;
+	int x;
+	LONG style;
+	LPCSTR lpszName;
+	LPCSTR lpszClass;
+	DWORD dwExStyle;
+};
+
+
+@nogc
 extern(Windows)
-LRESULT WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)nothrow
+{
+	export LONG SetWindowLongW(
+					   HWND hWnd,       // ウィンドウのハンドル
+					   int nIndex,      // 設定する値のオフセット
+					   LONG dwNewLong   // 新しい値
+						   )nothrow;
+
+	export LONG GetWindowLongW(
+					   HWND hWnd,  // ウィンドウのハンドル
+					   int nIndex  // 取得する値のオフセット
+						   )nothrow;
+
+	/*
+	export LONG_PTR SetWindowLongPtrW(
+						  HWND hWnd,           // ウィンドウのハンドル
+						  int nIndex,          // 変更する値のオフセット
+						  LONG_PTR dwNewLong   // 新しい値
+							  )nothrow;
+	*/
+}
+
+enum
+{
+	GWL_USERDATA=(-21),
+}
+
+D3D11Manager* g_d3d;
+
+extern(Windows)
+LRESULT WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)nothrow
 {
     switch (message)
     {
         case WM_CREATE:
+            {
+                // initialize
+                auto d3d = cast(D3D11Manager*)(cast(CREATESTRUCT*)lParam).lpCreateParams;
+                SetWindowLongW(hWnd, GWL_USERDATA, cast(LONG)d3d);
+
+				auto tmp=GetWindowLongW(hWnd, GWL_USERDATA);
+				auto t2=cast(D3D11Manager*)tmp;
+
+				g_d3d=d3d;
+                break;
+            }
+
+        case WM_ERASEBKGND:
             return 0;
+
+        case WM_SIZE:
+            {
+				auto tmp=GetWindowLongW(hWnd, GWL_USERDATA);
+				auto d3d = cast(D3D11Manager*)tmp;
+				try{
+					//d3d.Resize(LOWORD(wParam), HIWORD(wParam));
+					g_d3d.Resize(LOWORD(wParam), HIWORD(wParam));
+				}
+				catch(Throwable o)
+				{
+					//MessageBoxA(null, cast(char *)o.toString(), "Error", MB_OK | MB_ICONEXCLAMATION);
+				}
+			}
+			return 0;
+
+        case WM_PAINT:
+			{
+				PAINTSTRUCT ps;
+				HDC hdc = BeginPaint(hWnd, &ps);
+				scope(exit)EndPaint(hWnd, &ps);
+			}
+			return 0;
 
         case WM_DESTROY:
             PostQuitMessage(0);
             return 0;
 
-        default:
+		default:
+			break;
     }
 
-    return DefWindowProcW(hwnd, message, wParam, lParam);
+    return DefWindowProcW(hWnd, message, wParam, lParam);
 }
-

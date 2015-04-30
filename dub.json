@@ -1,9 +1,14 @@
 {
 	"name": "d3d_on_dlang",
 	"description": "A minimal D application.",
-	"copyright": "Copyright © 2015, focke",
-	"authors": ["focke"],
+	"copyright": "Copyright © 2015, ousttrue",
+	"authors": ["ousttrue"],
     "targetPath": "bin",
 	"dependencies": {
-	}
+        "derelict-d3d11": {
+            "version": "~master",
+            "path": "../DerelictD3D"
+        }
+	},
 }
+
