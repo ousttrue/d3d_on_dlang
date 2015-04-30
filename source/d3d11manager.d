@@ -7,26 +7,14 @@ import core.sys.windows.com;
 
 struct ComPtr(T)
 {
-	T ptr;
-	alias ptr this;
-	this(this) { if (ptr) ptr.AddRef(); } // post-blit
-	~this() { reset(); } // destructor
-	T* outptr()
-	{
-		reset();
-		return &ptr;
-	}
-
-	bool opCast(V)() const if (is(V==bool))
-	{
-		return ptr ? true : false;
-	}
-
-	void reset()
-	{
-		if(ptr)ptr.Release();
-		ptr=null;
-	}
+    T ptr;
+    alias ptr this;
+    this(this) { if (ptr) ptr.AddRef(); } // post-blit
+    ~this() { if(ptr)ptr.Release(); } // destructor
+    bool opCast(V)() const if (is(V==bool))
+    {
+        return ptr ? true : false;
+    }
 }
 
 
@@ -81,7 +69,7 @@ HRESULT CompileShaderFromFile
 							dwShaderFlags,
 							0,
 							ppBlobOut,
-							pErrorBlob.outptr()
+							&pErrorBlob.ptr
 							);
 
     // エラーチェック.
@@ -131,19 +119,19 @@ class Shader
     {
         // vertex shader
         ComPtr!(ID3DBlob) vblob;
-        HRESULT hr = CompileShaderFromFile(shaderFile, vsFunc, "vs_4_0_level_9_1", vblob.outptr());
+        HRESULT hr = CompileShaderFromFile(shaderFile, vsFunc, "vs_4_0_level_9_1", &vblob.ptr);
         if (FAILED(hr))
             return false;
-        hr = pDevice.CreateVertexShader(vblob.GetBufferPointer(), vblob.GetBufferSize(), null, m_pVsh.outptr());
+        hr = pDevice.CreateVertexShader(vblob.GetBufferPointer(), vblob.GetBufferSize(), null, &m_pVsh.ptr);
         if (FAILED(hr))
             return false;
 
         // pixel shader
         ComPtr!(ID3DBlob) pblob;
-        hr = CompileShaderFromFile(shaderFile, psFunc, "ps_4_0_level_9_1", pblob.outptr());
+        hr = CompileShaderFromFile(shaderFile, psFunc, "ps_4_0_level_9_1", &pblob.ptr);
         if (FAILED(hr))
             return false;
-        hr = pDevice.CreatePixelShader(pblob.GetBufferPointer(), pblob.GetBufferSize(), null, m_pPsh.outptr());
+        hr = pDevice.CreatePixelShader(pblob.GetBufferPointer(), pblob.GetBufferSize(), null, &m_pPsh.ptr);
         if (FAILED(hr))
             return false;
 
@@ -157,7 +145,7 @@ class Shader
         ];
 
         hr = pDevice.CreateInputLayout(vbElement.ptr, vbElement.length
-                , vblob.GetBufferPointer(), vblob.GetBufferSize(), m_pInputLayout.outptr());
+                , vblob.GetBufferPointer(), vblob.GetBufferSize(), &m_pInputLayout.ptr);
         if (FAILED(hr))
             return false;
 
@@ -234,7 +222,7 @@ private:
         D3D11_SUBRESOURCE_DATA vertexData;
         vertexData.pSysMem = pVertices.ptr;
 
-        HRESULT hr = pDevice.CreateBuffer(&vdesc, &vertexData, m_pVertexBuf.outptr());
+        HRESULT hr = pDevice.CreateBuffer(&vdesc, &vertexData, &m_pVertexBuf.ptr);
         if (FAILED(hr)){
             return false;
         }
@@ -255,7 +243,7 @@ private:
 		D3D11_SUBRESOURCE_DATA indexData;
 		indexData.pSysMem = pIndices.ptr;
 
-        HRESULT hr = pDevice.CreateBuffer(&idesc, &indexData, m_pIndexBuf.outptr());
+        HRESULT hr = pDevice.CreateBuffer(&idesc, &indexData, &m_pIndexBuf.ptr);
 		if (FAILED(hr)){
 			return false;
 		}
@@ -278,7 +266,7 @@ public:
 		pTexture.GetDesc(&m_colorDesc);
 
         // RenderTargetViewの作成
-        HRESULT hr = pDevice.CreateRenderTargetView(pTexture, null, m_pRenderTargetView.outptr());
+        HRESULT hr = pDevice.CreateRenderTargetView(pTexture, null, &m_pRenderTargetView.ptr);
         if (FAILED(hr)){
             return false;
         }
@@ -380,10 +368,10 @@ struct D3D11Manager
 												   featureLevels.length,
 												   sdkVersion,
 												   &scDesc,
-												   m_pSwapChain.outptr(),
-												   m_pDevice.outptr(),
+												   &m_pSwapChain.ptr,
+												   &m_pDevice.ptr,
 												   &validFeatureLevel,
-												   m_pDeviceContext.outptr()
+												   &m_pDeviceContext.ptr
 												   );
 		if (FAILED(hr)){
 			return false;
