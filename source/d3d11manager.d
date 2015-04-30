@@ -5,6 +5,31 @@ import std.file;
 import core.sys.windows.com;
 
 
+struct ComPtr(T)
+{
+	T ptr;
+	alias ptr this;
+	this(this) { if (ptr) ptr.AddRef(); } // post-blit
+	~this() { reset(); } // destructor
+	T* outptr()
+	{
+		reset();
+		return &ptr;
+	}
+
+	bool opCast(V)() const if (is(V==bool))
+	{
+		return ptr ? true : false;
+	}
+
+	void reset()
+	{
+		if(ptr)ptr.Release();
+		ptr=null;
+	}
+}
+
+
 HRESULT D3DCompileFromFile(
         in string pFileName,
         in D3D_SHADER_MACRO *pDefines,
@@ -36,7 +61,7 @@ HRESULT CompileShaderFromFile
  in string szFileName,
  in string szEntryPoint,
  in string szShaderModel,
- ID3DBlob*  ppBlobOut
+ ID3DBlob *ppBlobOut
 )
 {
     // コンパイルフラグ.
@@ -46,7 +71,7 @@ HRESULT CompileShaderFromFile
 
 
     // ファイルからシェーダをコンパイル.
-    ID3DBlob pErrorBlob;
+    ComPtr!(ID3DBlob) pErrorBlob;
     auto hr = D3DCompileFromFile(
 							szFileName,
 							null,
@@ -56,7 +81,7 @@ HRESULT CompileShaderFromFile
 							dwShaderFlags,
 							0,
 							ppBlobOut,
-							&pErrorBlob 
+							pErrorBlob.outptr()
 							);
 
     // エラーチェック.
@@ -78,11 +103,11 @@ HRESULT CompileShaderFromFile
 
 class Shader
 {
-    ID3D11VertexShader m_pVsh;
-    ID3D11PixelShader m_pPsh;
-    ID3D11InputLayout m_pInputLayout;
+    ComPtr!(ID3D11VertexShader) m_pVsh;
+    ComPtr!(ID3D11PixelShader) m_pPsh;
+    ComPtr!(ID3D11InputLayout) m_pInputLayout;
 
-    public bool Initialize(ID3D11Device pDevice, in string shaderFile)
+    public bool Initialize(ComPtr!(ID3D11Device) pDevice, in string shaderFile)
     {
         if(!createShaders(pDevice, shaderFile, "VS", "PS")){
             return false;
@@ -91,34 +116,34 @@ class Shader
         return true;
     }
 
-    public void Setup(ID3D11DeviceContext pDeviceContext)
+    public void Setup(ComPtr!(ID3D11DeviceContext) pDeviceContext)
     {
         // Shaderのセットアップ
-        pDeviceContext.VSSetShader(m_pVsh, null, 0);
-        pDeviceContext.PSSetShader(m_pPsh, null, 0);
+        pDeviceContext.VSSetShader(m_pVsh.ptr, null, 0);
+        pDeviceContext.PSSetShader(m_pPsh.ptr, null, 0);
 
         // ILのセット
         pDeviceContext.IASetInputLayout(m_pInputLayout);
     }
 
-    private bool createShaders(ID3D11Device pDevice
+    private bool createShaders(ref ComPtr!(ID3D11Device) pDevice
 		, in string shaderFile, in string vsFunc, in string psFunc)
     {
         // vertex shader
-        ID3DBlob vblob;
-        HRESULT hr = CompileShaderFromFile(shaderFile, vsFunc, "vs_4_0_level_9_1", &vblob);
+        ComPtr!(ID3DBlob) vblob;
+        HRESULT hr = CompileShaderFromFile(shaderFile, vsFunc, "vs_4_0_level_9_1", vblob.outptr());
         if (FAILED(hr))
             return false;
-        hr = pDevice.CreateVertexShader(vblob.GetBufferPointer(), vblob.GetBufferSize(), null, &m_pVsh);
+        hr = pDevice.CreateVertexShader(vblob.GetBufferPointer(), vblob.GetBufferSize(), null, m_pVsh.outptr());
         if (FAILED(hr))
             return false;
 
         // pixel shader
-        ID3DBlob pblob;
-        hr = CompileShaderFromFile(shaderFile, psFunc, "ps_4_0_level_9_1", &pblob);
+        ComPtr!(ID3DBlob) pblob;
+        hr = CompileShaderFromFile(shaderFile, psFunc, "ps_4_0_level_9_1", pblob.outptr());
         if (FAILED(hr))
             return false;
-        hr = pDevice.CreatePixelShader(pblob.GetBufferPointer(), pblob.GetBufferSize(), null, &m_pPsh);
+        hr = pDevice.CreatePixelShader(pblob.GetBufferPointer(), pblob.GetBufferSize(), null, m_pPsh.outptr());
         if (FAILED(hr))
             return false;
 
@@ -132,7 +157,7 @@ class Shader
         ];
 
         hr = pDevice.CreateInputLayout(vbElement.ptr, vbElement.length
-                , vblob.GetBufferPointer(), vblob.GetBufferSize(), &m_pInputLayout);
+                , vblob.GetBufferPointer(), vblob.GetBufferSize(), m_pInputLayout.outptr());
         if (FAILED(hr))
             return false;
 
@@ -158,11 +183,11 @@ struct Vertex
 
 class InputAssemblerSource
 {
-    ID3D11Buffer m_pVertexBuf;
-    ID3D11Buffer m_pIndexBuf;
+    ComPtr!(ID3D11Buffer) m_pVertexBuf;
+    ComPtr!(ID3D11Buffer) m_pIndexBuf;
 public:
 
-    bool Initialize(ID3D11Device pDevice)
+    bool Initialize(ComPtr!(ID3D11Device) pDevice)
     {
         if(!createVB(pDevice)){
             return false;
@@ -173,10 +198,10 @@ public:
         return true;
     }
 
-    void Draw(ID3D11DeviceContext pDeviceContext)
+    void Draw(ComPtr!(ID3D11DeviceContext) pDeviceContext)
     {
         // VBのセット
-        auto pBufferTbl = [ m_pVertexBuf ];
+        auto pBufferTbl = [ m_pVertexBuf.ptr ];
         auto SizeTbl = [ Vertex.sizeof ];
         UINT[] OffsetTbl = [ 0 ];
         pDeviceContext.IASetVertexBuffers(0, pBufferTbl.length, pBufferTbl.ptr, SizeTbl.ptr, OffsetTbl.ptr);
@@ -190,7 +215,7 @@ public:
     }
 
 private:
-    bool createVB(ID3D11Device pDevice)
+    bool createVB(ComPtr!(ID3D11Device) pDevice)
     {
         // Create VB
         Vertex[3] pVertices =
@@ -209,7 +234,7 @@ private:
         D3D11_SUBRESOURCE_DATA vertexData;
         vertexData.pSysMem = pVertices.ptr;
 
-        HRESULT hr = pDevice.CreateBuffer(&vdesc, &vertexData, &m_pVertexBuf);
+        HRESULT hr = pDevice.CreateBuffer(&vdesc, &vertexData, m_pVertexBuf.outptr());
         if (FAILED(hr)){
             return false;
         }
@@ -217,7 +242,7 @@ private:
         return true;
     }
 
-	bool createIB(ID3D11Device pDevice)
+	bool createIB(ComPtr!(ID3D11Device) pDevice)
     {
         uint[3] pIndices = [0, 1, 2];
 
@@ -230,7 +255,7 @@ private:
 		D3D11_SUBRESOURCE_DATA indexData;
 		indexData.pSysMem = pIndices.ptr;
 
-        HRESULT hr = pDevice.CreateBuffer(&idesc, &indexData, &m_pIndexBuf);
+        HRESULT hr = pDevice.CreateBuffer(&idesc, &indexData, m_pIndexBuf.outptr());
 		if (FAILED(hr)){
 			return false;
 		}
@@ -242,18 +267,18 @@ private:
 
 class RenderTarget
 {
-    ID3D11RenderTargetView m_pRenderTargetView;
+    ComPtr!(ID3D11RenderTargetView) m_pRenderTargetView;
 	D3D11_TEXTURE2D_DESC m_colorDesc;
 
 public:
     bool IsInitialized()const{ return m_pRenderTargetView ? true : false; }
 
-    bool Initialize(ID3D11Device pDevice, ID3D11Texture2D pTexture)
+    bool Initialize(ComPtr!(ID3D11Device) pDevice, ID3D11Texture2D pTexture)
     {
 		pTexture.GetDesc(&m_colorDesc);
 
         // RenderTargetViewの作成
-        HRESULT hr = pDevice.CreateRenderTargetView(pTexture, null, &m_pRenderTargetView);
+        HRESULT hr = pDevice.CreateRenderTargetView(pTexture, null, m_pRenderTargetView.outptr());
         if (FAILED(hr)){
             return false;
         }
@@ -261,10 +286,11 @@ public:
         return true;
     }
 
-    void SetAndClear(ID3D11DeviceContext pDeviceContext)
+    void SetAndClear(ComPtr!(ID3D11DeviceContext) pDeviceContext)
     {
         // Output-Merger stage
-        pDeviceContext.OMSetRenderTargets(1, &m_pRenderTargetView, null);
+		auto renderTargets=[ m_pRenderTargetView.ptr ];
+        pDeviceContext.OMSetRenderTargets(renderTargets.length, renderTargets.ptr, null);
 
         if(m_pRenderTargetView){
             // clear
@@ -306,9 +332,9 @@ GUID toGUID(immutable UUID uuid)
 
 struct D3D11Manager
 {
-	ID3D11Device m_pDevice;
-	ID3D11DeviceContext m_pDeviceContext;
-	IDXGISwapChain m_pSwapChain;
+	ComPtr!(ID3D11Device) m_pDevice;
+	ComPtr!(ID3D11DeviceContext) m_pDeviceContext;
+	ComPtr!(IDXGISwapChain) m_pSwapChain;
 
     Shader m_shader= new Shader();
 	InputAssemblerSource m_IASource=new InputAssemblerSource();
@@ -354,10 +380,10 @@ struct D3D11Manager
 												   featureLevels.length,
 												   sdkVersion,
 												   &scDesc,
-												   &m_pSwapChain,
-												   &m_pDevice,
+												   m_pSwapChain.outptr(),
+												   m_pDevice.outptr(),
 												   &validFeatureLevel,
-												   &m_pDeviceContext
+												   m_pDeviceContext.outptr()
 												   );
 		if (FAILED(hr)){
 			return false;
