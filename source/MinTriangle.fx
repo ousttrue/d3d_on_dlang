@@ -18,8 +18,8 @@ cbuffer c0
 VS_OUTPUT VS( VS_INPUT In )
 {
     VS_OUTPUT Output;
-	//Output.Position = mul(In.Position, ModelMatrix);
-	Output.Position = In.Position;
+	Output.Position = mul(In.Position, ModelMatrix);
+	//Output.Position = In.Position;
     Output.Color    = In.Color;
     return Output;    
 }

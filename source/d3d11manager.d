@@ -3,6 +3,7 @@ import derelict.windows.kits_8_1.d3d11;
 import derelict.windows.kits_8_1.d3dcompiler;
 import std.file;
 import core.sys.windows.com;
+import dvecmath.dvecmath;
 
 
 struct ComPtr(T)
@@ -89,17 +90,67 @@ HRESULT CompileShaderFromFile
 }
 
 
+class ConstantBuffer(T)
+{
+	ComPtr!ID3D11Buffer m_pBuffer;
+
+public:
+	T Buffer;
+
+	bool Initialize(ref ComPtr!ID3D11Device pDevice)
+	{
+		D3D11_BUFFER_DESC desc = { 0 };
+
+        desc.ByteWidth = T.sizeof;
+        desc.Usage = D3D11_USAGE.DEFAULT;
+        desc.BindFlags = D3D11_BIND.CONSTANT_BUFFER;
+
+		auto hr = pDevice.CreateBuffer(&desc, null, &m_pBuffer.ptr);
+		if (FAILED(hr)){
+			return false;
+		}
+
+		return true;
+	}
+
+	void Update(ref ComPtr!(ID3D11DeviceContext) pDeviceContext)
+	{
+		pDeviceContext.UpdateSubresource(m_pBuffer.ptr, 0, null, &Buffer, 0, 0);
+	}
+
+	void SetPipeline(ref ComPtr!ID3D11DeviceContext pDeviceContext)
+	{
+        auto buffers=[ m_pBuffer.ptr ];
+		pDeviceContext.VSSetConstantBuffers(0, buffers.length, buffers.ptr);
+	}
+}
+
+
 class Shader
 {
     ComPtr!(ID3D11VertexShader) m_pVsh;
     ComPtr!(ID3D11PixelShader) m_pPsh;
     ComPtr!(ID3D11InputLayout) m_pInputLayout;
 
+    struct TriangleVariables
+    {
+        mat4 Model;
+    };
+    ConstantBuffer!(TriangleVariables) m_constant=new ConstantBuffer!(TriangleVariables)();
+	ConstantBuffer!(TriangleVariables) GetConstantBuffer()
+	{
+		return m_constant;
+	}
+
     public bool Initialize(ComPtr!(ID3D11Device) pDevice, in string shaderFile)
     {
         if(!createShaders(pDevice, shaderFile, "VS", "PS")){
             return false;
         }
+
+		if (!m_constant.Initialize(pDevice)){
+			return false;
+		}
 
         return true;
     }
@@ -112,6 +163,10 @@ class Shader
 
         // ILのセット
         pDeviceContext.IASetInputLayout(m_pInputLayout);
+
+		// 定数バッファの更新
+		m_constant.Update(pDeviceContext);
+		m_constant.SetPipeline(pDeviceContext);
     }
 
     private bool createShaders(ref ComPtr!(ID3D11Device) pDevice
@@ -433,20 +488,17 @@ struct D3D11Manager
 		}
 		m_renderTarget.SetAndClear(m_pDeviceContext);
 
-		/*
 		// update
-		DirectX::XMFLOAT4X4 matrix;
 		{
 			//auto m = DirectX::XMMatrixIdentity();
-			static float angleRadians = 0;
-			const auto DELTA = DirectX::XMConvertToRadians(0.1f);
+			static angleRadians = radians(0);
+			const DELTA = radians.fromDegree(0.1f);
 			angleRadians += DELTA;
-			auto m = DirectX::XMMatrixRotationZ(angleRadians);
-		DirectX::XMStoreFloat4x4(&matrix, m);
-		// shader
-		m_shader.Set("ModelMatrix", matrix);
+			auto m = mat4.zAxisRotation(angleRadians);
+            // shader
+            m_shader.GetConstantBuffer().Buffer.Model=m;
 		}
-		*/
+
 		m_shader.Setup(m_pDeviceContext);
 
 		// 描画

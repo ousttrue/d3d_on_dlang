@@ -7,8 +7,12 @@
 	"dependencies": {
         "derelict-d3d11": {
             "version": "~master",
-            "path": "../DerelictD3D"
-        }
+            "path": "../DerelictD3D",
+        },
+        "dvecmath": {
+            "version": "~master",
+            "path": "../dvecmath",
+        },
 	},
 }
 
