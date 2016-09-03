@@ -123,7 +123,7 @@ public:
 	void SetPipeline(ref ComPtr!ID3D11DeviceContext pDeviceContext)
 	{
         auto buffers=[ m_pBuffer.ptr ];
-		pDeviceContext.VSSetConstantBuffers(0, buffers.length, buffers.ptr);
+		pDeviceContext.VSSetConstantBuffers(0, cast(uint)buffers.length, buffers.ptr);
 	}
 }
 
@@ -201,7 +201,7 @@ class Shader
 									 , 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT.PER_VERTEX_DATA, 0)
         ];
 
-        hr = pDevice.CreateInputLayout(vbElement.ptr, vbElement.length
+        hr = pDevice.CreateInputLayout(vbElement.ptr, cast(uint)vbElement.length
                 , vblob.GetBufferPointer(), vblob.GetBufferSize(), &m_pInputLayout.ptr);
         if (FAILED(hr))
             return false;
@@ -247,9 +247,9 @@ public:
     {
         // VBのセット
         auto pBufferTbl = [ m_pVertexBuf.ptr ];
-        auto SizeTbl = [ Vertex.sizeof ];
+        auto SizeTbl = [ cast(uint)Vertex.sizeof ];
         UINT[] OffsetTbl = [ 0 ];
-        pDeviceContext.IASetVertexBuffers(0, pBufferTbl.length, pBufferTbl.ptr, SizeTbl.ptr, OffsetTbl.ptr);
+        pDeviceContext.IASetVertexBuffers(0, cast(uint)pBufferTbl.length, pBufferTbl.ptr, SizeTbl.ptr, OffsetTbl.ptr);
         // IBのセット
         pDeviceContext.IASetIndexBuffer(m_pIndexBuf, DXGI_FORMAT.R32_UINT, 0);
         // プリミティブタイプのセット
@@ -335,7 +335,7 @@ public:
     {
         // Output-Merger stage
 		auto renderTargets=[ m_pRenderTargetView.ptr ];
-        pDeviceContext.OMSetRenderTargets(renderTargets.length, renderTargets.ptr, null);
+        pDeviceContext.OMSetRenderTargets(cast(uint)renderTargets.length, renderTargets.ptr, null);
 
         if(m_pRenderTargetView){
             // clear
@@ -422,7 +422,7 @@ struct D3D11Manager
 												   null,
 												   flags,
 												   featureLevels.ptr,
-												   featureLevels.length,
+												   cast(uint)featureLevels.length,
 												   sdkVersion,
 												   &scDesc,
 												   &m_pSwapChain.ptr,
