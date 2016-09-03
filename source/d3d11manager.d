@@ -2,6 +2,8 @@ module d3d11manager;
 import derelict.windows.kits_8_1.d3d11;
 import derelict.windows.kits_8_1.d3dcompiler;
 import std.file;
+import core.sys.windows.windef;
+import core.sys.windows.windows: MessageBoxA, MB_OK;
 import core.sys.windows.com;
 import dvecmath.dvecmath;
 
